@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 	app.Post("/api/expenses", createExpense)
 	app.Get("/api/expenses", getAllExpenses)
 	app.Get("/api/expenses/:id", getExpenseByID)
+	app.Patch("api/expenses/:id", updateExpense)
 	app.Delete("/api/expenses/:id", deleteExpense)
 
 	app.Get("api/dashboard", getDashBoardMetrics)
@@ -28,6 +30,9 @@ func main() {
 
 	app.Get("api/profile", getUserProfile)
 	app.Patch("/api/profile", updateUserProfile)
+
+	app.Post("/api/register", registerUser)
+	app.Post("/api/login", loginUser)
 
 	// app.Use(jwtware.New(jwtware.Config{
 	// 	SigningKey: []byte("secret"),
@@ -47,6 +52,49 @@ func createExpense(c *fiber.Ctx) error {
 
 	database.DB.Create(expense)
 	return c.Status(201).JSON(expense)
+}
+
+func updateExpense(c *fiber.Ctx) error {
+	userID := c.Locals("user").(uint)
+	expenseID := c.Params("id")
+
+	var expense models.Expense
+
+	if err := database.DB.Where(
+		"id = ? AND user_id = ?",
+		userID, expenseID).
+		First(&expense).Error; err != nil {
+		c.Status(401).JSON(fiber.Map{
+			"error": "Expense not found"})
+	}
+
+	var updateUserData struct {
+		Amount   float64 `json:"amount"`
+		Category string  `json:"category"`
+		Note     string  `json:"note"`
+	}
+
+	if err := c.BodyParser(&updateUserData); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request"})
+	}
+
+	if updateUserData.Amount != 0 {
+		expense.Amount = updateUserData.Amount
+	}
+
+	if updateUserData.Category != "" {
+		expense.Category = updateUserData.Category
+	}
+
+	if updateUserData.Note != "" {
+		expense.Note = updateUserData.Note
+	}
+
+	database.DB.Save(&expense)
+	return c.JSON(fiber.Map{
+		"message": "Expense Updated",
+		"expense": expense})
 }
 
 func getAllExpenses(c *fiber.Ctx) error {
@@ -105,12 +153,16 @@ func registerUser(c *fiber.Ctx) error {
 	user := new(models.User)
 
 	if err := c.BodyParser(user); err != nil {
-		return c.Status(404).JSON(fiber.Map{
+		return c.Status(400).JSON(fiber.Map{
 			"error": "Invalid request"})
 	}
 
-	hashedPassword, _ := bcrypt.GenerateFromPassword(
+	hashedPassword, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password), 14)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to hash password"})
+	}
 	user.Password = string(hashedPassword)
 
 	database.DB.Create(&user)
@@ -120,20 +172,35 @@ func registerUser(c *fiber.Ctx) error {
 func loginUser(c *fiber.Ctx) error {
 	var input models.User
 
-	if err := c.BodyParser(input); err != nil {
-		c.Status(404).JSON(fiber.Map{"error": "Invalid request"})
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
 	var user models.User
 	database.DB.Where("username = ?", input.Username).First(&user)
 
 	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.Password), []byte(input.Password)); err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Invalid request"})
+		[]byte(user.Password),
+		[]byte(input.Password)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	token, _ := jwt.New(jwt.SigningMethodHS256).SignedString([]byte("secret"))
+	token, err := jwt.New(jwt.SigningMethodHS256).SignedString([]byte("secret"))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate token"})
+	}
 	return c.JSON(fiber.Map{"token": token})
+}
+
+var jwtSecret = []byte("secret")
+
+func GenerateJWT(userID uint) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
 }
 
 func createCategory(c *fiber.Ctx) error {
@@ -214,7 +281,8 @@ func updateUserProfile(c *fiber.Ctx) error {
 	}
 
 	if updateUserData.Password != "" {
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(updateUserData.Password), 14)
+		hashedPassword, _ := bcrypt.GenerateFromPassword(
+			[]byte(updateUserData.Password), 14)
 		user.Password = string(hashedPassword)
 	}
 
