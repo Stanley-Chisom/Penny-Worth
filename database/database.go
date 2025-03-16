@@ -23,5 +23,3 @@ func Connect() {
 	fmt.Println("Connected to database:", db)
 	DB = db
 }
-
-
