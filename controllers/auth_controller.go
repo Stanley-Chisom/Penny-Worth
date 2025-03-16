@@ -3,6 +3,7 @@ package controllers
 import (
 	"pennyWorth/database"
 	"pennyWorth/models"
+	"pennyWorth/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
@@ -31,7 +32,6 @@ func RegisterUser(c *fiber.Ctx) error {
 
 func LoginUser(c *fiber.Ctx) error {
 	var input models.User
-
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
@@ -39,15 +39,14 @@ func LoginUser(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.Where("username = ?", input.Username).First(&user)
 
-	if err := bcrypt.CompareHashAndPassword(
-		[]byte(user.Password),
-		[]byte(input.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	token, err := jwt.New(jwt.SigningMethodHS256).SignedString([]byte("secret"))
+	token, err := jwt.New(jwt.SigningMethodHS256).SignedString(utils.JwtSecret)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate token"})
 	}
+
 	return c.JSON(fiber.Map{"token": token})
 }

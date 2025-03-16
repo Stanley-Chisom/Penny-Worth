@@ -10,10 +10,14 @@ func CreateExpense(c *fiber.Ctx) error {
 
 	expense := new(models.Expense)
 
+	userID := c.Locals("user").(uint)
+
 	if err := c.BodyParser(expense); err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Invalid Request"})
 	}
+
+	expense.UserID = userID
 
 	database.DB.Create(expense)
 	return c.Status(201).JSON(expense)
