@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"pennyWorth/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -22,4 +23,11 @@ func Connect() {
 
 	fmt.Println("Connected to database:", db)
 	DB = db
+
+	Migrate()
+}
+
+func Migrate() {
+	DB.AutoMigrate(&models.User{}, &models.Category{}, &models.User{})
+	fmt.Println("Database migration successful")
 }
