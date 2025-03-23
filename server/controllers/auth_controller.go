@@ -32,6 +32,7 @@ func RegisterUser(c *fiber.Ctx) error {
 
 func LoginUser(c *fiber.Ctx) error {
 	var input models.User
+
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
@@ -39,8 +40,11 @@ func LoginUser(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.Where("username = ?", input.Username).First(&user)
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(user.Password),
+		[]byte(input.Password)); err != nil {
+		return c.Status(401).JSON(fiber.Map{
+			"error": "Invalid credentials"})
 	}
 
 	token, err := jwt.New(jwt.SigningMethodHS256).SignedString(utils.JwtSecret)

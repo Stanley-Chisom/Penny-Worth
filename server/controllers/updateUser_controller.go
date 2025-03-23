@@ -8,7 +8,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-
 func GetUserProfile(c *fiber.Ctx) error {
 	userID := c.Locals("user").(float64)
 	var user models.User

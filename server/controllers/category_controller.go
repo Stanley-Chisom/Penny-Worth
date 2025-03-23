@@ -18,7 +18,7 @@ func CreateCategory(c *fiber.Ctx) error {
 }
 
 func GetCategories(c *fiber.Ctx) error {
-	var categories []models.Category
+	var categories []models.Category 
 	database.DB.Find(&categories)
 	return c.JSON(categories)
 }

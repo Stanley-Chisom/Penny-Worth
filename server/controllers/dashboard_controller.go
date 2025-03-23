@@ -6,7 +6,6 @@ import (
 	"pennyWorth/models"
 )
 
-
 func GetDashBoardMetrics(c *fiber.Ctx) error {
 	var totalExpenses float64
 	database.DB.Model(&models.Expense{}).Select(

@@ -10,10 +10,12 @@ var JwtSecret = []byte("your_secret_key")
 
 // Verify JWT Token
 func VerifyJWT(tokenString string) (uint, error) {
+	
 	// Parse token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return JwtSecret, nil
-	})
+	token, err := jwt.Parse(tokenString,
+		func(token *jwt.Token) (any, error) {
+			return JwtSecret, nil
+		})
 
 	if err != nil || !token.Valid {
 		return 0, errors.New("invalid token")
